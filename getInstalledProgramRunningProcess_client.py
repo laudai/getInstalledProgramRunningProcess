@@ -2,6 +2,10 @@
 
 import socket
 
+"""
+must use argparse
+import argparse
+"""
 HOST = "127.0.0.1"  # The server HOST
 PORT = 17777  # The Server Port
 
