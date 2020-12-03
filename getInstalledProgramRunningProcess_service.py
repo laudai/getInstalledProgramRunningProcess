@@ -5,6 +5,7 @@ import socket
 import subprocess
 import sys
 import traceback
+import types
 from datetime import datetime
 from typing import List
 
@@ -23,6 +24,7 @@ HOST = "127.0.0.1"  # Standard loopback interface address (localhost)
 # Port must listen above on 1023
 # Service Port range in 17377 ~ 17777
 DEFAULT_SOCKET_PORT: tuple = (17377, 17777)
+CONTENT_ENCODING = "UTF-8"
 
 sel = selectors.DefaultSelector()
 
@@ -32,23 +34,20 @@ def get_service_information_header() -> List[str]:
     get remote service information : include hostname, remote timestamp, host ip
     """
 
-    lines = "="*80 + "\n"
-
     # get remote service hostname
     hostname_cp = subprocess.Popen(
         "hostname", shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     hostname_cp.wait()
     hostname_cp_str = hostname_cp.stdout.readlines(
-    )[0].decode('ascii').strip('\r\n') + "\n"
+    )[0].decode('ascii').strip('\r\n')
 
     # get remote service time
-    currentTime_str = datetime.now().strftime("%Y/%m/%d %H:%M:%S") + "\n"
+    currentTime_str = datetime.now().strftime("%Y/%m/%d %H:%M:%S")
 
     # get remote service mode ip address
-    host_ip_address = socket.gethostbyname(socket.gethostname())
-    host_ip_address_str = host_ip_address + "\n\n"
+    host_ip_address_str = socket.gethostbyname(socket.gethostname())
 
-    return [lines, hostname_cp_str, currentTime_str, host_ip_address_str]
+    return [hostname_cp_str, currentTime_str, host_ip_address_str]
 
 
 def get_service_installed_program() -> str:
@@ -94,49 +93,115 @@ def writeData():
     write data to remote service desktop
     """
     # write data to InstalledProgram.txt
-    with open(os.path.join(DIRPATH, "InstalledProgram.txt"), 'w', encoding='UTF-8') as f:
+    with open(os.path.join(DIRPATH, "InstalledProgram.txt"), 'w', encoding=CONTENT_ENCODING) as f:
         get_service_information_header_list = get_service_information_header()
         for content in get_service_information_header_list:
-            f.write(content)
-        installed_program_text = get_service_installed_program()
-        f.write(installed_program_text)
+            f.write(content + '\n')
+        else:
+            f.write("\n")
+        installed_program_str = get_service_installed_program()
+        f.write(installed_program_str)
 
     # write data to RunningProcess.txt
-    with open(os.path.join(DIRPATH, "RunningProcess.txt"), 'w', encoding='UTF-8') as f:
+    with open(os.path.join(DIRPATH, "RunningProcess.txt"), 'w', encoding=CONTENT_ENCODING) as f:
         get_service_information_header_list = get_service_information_header()
         for content in get_service_information_header_list:
-            f.write(content)
+            f.write(content + '\n')
+        else:
+            f.write("\n")
         get_service_running_process_str = get_service_running_process()
         f.write(get_service_running_process_str)
 
 
+def accept_socket_wrapper(sock):
+    conn, addr = sock.accept()  # Should be ready Read Data
+    print(f"Connect from {addr}")
+    # conn.setblocking(False)
+
+    # creat a variable name data pass to Selectors.data,
+    # and create it's Namespace addr, inb:bytes, outb:bytes
+    data = types.SimpleNamespace(addr=addr, inb=b"", outb=b"")
+    events = selectors.EVENT_READ | selectors.EVENT_WRITE
+    sel.register(conn, events, data=data)
+
+
+def socket_service_connection(key, mask):
+    sock = key.fileobj
+    data = key.data
+    if mask & selectors.EVENT_READ:
+        recv_data = sock.recv(4096)  # Should be ready to read
+        if recv_data:
+            if recv_data == b"getAll":
+                pass
+                """
+                To Do
+                get_service_information_header_list = get_service_information_header()
+                get_service_running_process_str = get_service_running_process()
+                installed_program_str = get_service_installed_program()
+                """
+            elif recv_data == b"running_process":
+                pass
+                """
+                To Do
+                get_service_information_header_list = get_service_information_header()
+                get_service_running_process_str = get_service_running_process()
+                """
+
+            elif recv_data == b"installed_program":
+                get_service_information_header_list = get_service_information_header()
+                installed_program_str = get_service_installed_program()
+                print(installed_program_str)
+                data.outb += installed_program_str.encode(CONTENT_ENCODING)
+
+            elif recv_data == b"writeData":
+                writeData()
+                data.outb += "writeData Done!".encode(CONTENT_ENCODING)
+
+            elif recv_data == b"q":
+                text = f"""
+                receive bytes:q message
+                closing connection to {data.addr}
+                shutting down the service !
+                """
+                print(text)
+                sel.unregister(sock)
+                sock.close()
+                sys.exit(1)
+            else:
+                data.outb += recv_data
+        else:
+            print(f"closing connection to {data.addr}")
+            sel.unregister(sock)
+            sock.close()
+    if mask & selectors.EVENT_WRITE:
+        if data.outb:
+            sent = sock.send(data.outb)  # Should be ready to write
+            print(f"echo {repr(data.outb)} to {data.addr}")
+            # remove buffer via str slice
+            data.outb = data.outb[sent:]
+
+
 def main():
-    if len(sys.argv) >= 2:
-        if sys.argv[1] == "write":
-            writeData()
-    # traceback.format_exc()}
-
-
-if __name__ == "__main__":
-    # main()
     Socket = libsocketserver.Socket(HOST, DEFAULT_SOCKET_PORT)  # init Socket
     Socket.checkAndBindSocket()
     sel.register(Socket.sock, selectors.EVENT_READ,
                  data=None)  # multiplexing I/O
+    try:
+        while True:
+            events = sel.select(timeout=None)
+            for key, mask in events:
+                if key.data is None:
+                    accept_socket_wrapper(key.fileobj)
+                else:
+                    socket_service_connection(key, mask)
+    except KeyboardInterrupt:
+        print("Caught Keyboard Interrupt, Exiting")
+    finally:
+        sel.close()
+    """
+    traceback.format_exc()}
+    """
 
-    # with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-    #     # address family socket.AF_INET instance:( domain|IPv4 Address , Interget Port )
-    #     #  If you pass an empty string to host, the server will accept connections on all available IPv4 interfaces
-    #     s.bind((HOST, PORT))
-    #     s.listen()
-    #     conn, addr = s.accept()
-    #     with conn:
-    #         print(f"\nconnected by: {addr}\n")
-    #         while True:
-    #             data = conn.recv(1024)
-    #             conn.send(data)
-    #             print(data)
 
-    #             if not data:
-    #                 # conn.send(b"nodata")
-    #                 break
+if __name__ == "__main__":
+    main()
