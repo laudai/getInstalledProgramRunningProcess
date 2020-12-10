@@ -129,7 +129,7 @@ def socket_service_connection(key, mask):
     sock = key.fileobj
     data = key.data
     if mask & selectors.EVENT_READ:
-        recv_data = sock.recv(4096)  # Should be ready to read
+        recv_data = sock.recv(1024)  # Should be ready to read
         if recv_data:
             if recv_data == b"getAll":
                 pass
@@ -150,7 +150,6 @@ def socket_service_connection(key, mask):
             elif recv_data == b"installed_program":
                 get_service_information_header_list = get_service_information_header()
                 installed_program_str = get_service_installed_program()
-                print(installed_program_str)
                 data.outb += installed_program_str.encode(CONTENT_ENCODING)
 
             elif recv_data == b"writeData":
@@ -159,26 +158,33 @@ def socket_service_connection(key, mask):
 
             elif recv_data == b"q":
                 text = f"""
-                receive bytes:q message
-                closing connection to {data.addr}
-                shutting down the service !
+                Receive Bytes:q Message
+                Closing Connection To {data.addr}
+                Shutting Down This Service !
                 """
                 print(text)
                 sel.unregister(sock)
                 sock.close()
                 sys.exit(1)
             else:
+                # add recv_data to data.outb to forward to client address
                 data.outb += recv_data
         else:
-            print(f"closing connection to {data.addr}")
+            print(f"Closing Connection to {data.addr}")
             sel.unregister(sock)
             sock.close()
     if mask & selectors.EVENT_WRITE:
         if data.outb:
             sent = sock.send(data.outb)  # Should be ready to write
-            print(f"echo {repr(data.outb)} to {data.addr}")
+            print(f"Echo {repr(data.outb)} To {data.addr}")
             # remove buffer via str slice
             data.outb = data.outb[sent:]
+            try:
+                # send bytes message "q" to disconnect by peer
+                sock.send(b"q")
+            except ConnectionError as err:
+                print(
+                    f"ConnectionError by peer Shutdown,Error Code:\n{err}")
 
 
 def main():
