@@ -194,12 +194,15 @@ def main():
                  data=None)  # multiplexing I/O
     try:
         while True:
-            events = sel.select(timeout=None)
-            for key, mask in events:
-                if key.data is None:
-                    accept_socket_wrapper(key.fileobj)
-                else:
-                    socket_service_connection(key, mask)
+            try:
+                events = sel.select(timeout=None)
+                for key, mask in events:
+                    if key.data is None:
+                        accept_socket_wrapper(key.fileobj)
+                    else:
+                        socket_service_connection(key, mask)
+            except Exception:
+                print(f"Main error, exception for:\n{traceback.format_exc()}")
     except KeyboardInterrupt:
         print("Caught Keyboard Interrupt, Exiting")
     finally:
