@@ -8,7 +8,6 @@ A project that get Windows User `Installed Program`,`Running Process` via **Wind
 Default Disabling show `"svchost.exe", "firefox.exe", "chrome.exe"` in Running Process.
 
 ### Roadmap
-* argparse
 * json
 * ip boardcast
 * thread or process to writeAllDataToLocal
