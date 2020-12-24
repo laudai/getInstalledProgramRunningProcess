@@ -26,6 +26,11 @@ HOST = "127.0.0.1"  # Standard loopback interface address (localhost)
 DEFAULT_SOCKET_PORT: tuple = (17377, 17777)
 CONTENT_ENCODING = "UTF-8"
 
+EVENT_QUIT = 0
+EVENT_WRITEDATA_TO_LOCAL = (1 << 0)
+EVENT_GET_RUNNING_PROCESS = (1 << 1)
+EVENT_GET_INSTALLED_PROGRAM = (1 << 2)
+
 sel = selectors.DefaultSelector()
 
 
@@ -59,7 +64,7 @@ def get_service_installed_program() -> str:
         ["powershell", "Get-CimInstance win32_product | Select-Object Name, PackageName, InstallDate"],
         shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     stdout, stderr = install_software_cp.communicate()
-    return stdout.decode('ANSI').strip()
+    return stdout.decode('ANSI').replace("\r\n", "\n")
 
 
 def get_service_running_process() -> str:
@@ -88,7 +93,7 @@ def get_service_running_process() -> str:
     return running_process_str
 
 
-def writeData():
+def writeAllDataToLocal():
     """
     write data to remote service desktop
     """
@@ -131,32 +136,24 @@ def socket_service_connection(key, mask):
     if mask & selectors.EVENT_READ:
         recv_data = sock.recv(1024)  # Should be ready to read
         if recv_data:
-            if recv_data == b"getAll":
-                pass
-                """
-                To Do
-                get_service_information_header_list = get_service_information_header()
-                get_service_running_process_str = get_service_running_process()
-                installed_program_str = get_service_installed_program()
-                """
-            elif recv_data == b"running_process":
-                pass
-                """
-                To Do
-                get_service_information_header_list = get_service_information_header()
-                get_service_running_process_str = get_service_running_process()
-                """
+            events_mask = int(
+                chr(int.from_bytes(recv_data, byteorder="little")))
+            get_service_information_header_list = get_service_information_header()
 
-            elif recv_data == b"installed_program":
-                get_service_information_header_list = get_service_information_header()
+            if events_mask & EVENT_WRITEDATA_TO_LOCAL:
+                writeAllDataToLocal()
+                data.outb += "writeDataToLocal Done!".encode(CONTENT_ENCODING)
+
+            if events_mask & EVENT_GET_RUNNING_PROCESS:
+                get_service_running_process_str = get_service_running_process()
+                data.outb += get_service_running_process_str.encode(
+                    CONTENT_ENCODING)
+
+            if events_mask & EVENT_GET_INSTALLED_PROGRAM:
                 installed_program_str = get_service_installed_program()
                 data.outb += installed_program_str.encode(CONTENT_ENCODING)
 
-            elif recv_data == b"writeData":
-                writeData()
-                data.outb += "writeData Done!".encode(CONTENT_ENCODING)
-
-            elif recv_data == b"q":
+            if not (events_mask ^ EVENT_QUIT):
                 text = f"""
                 Receive Bytes:q Message
                 Closing Connection To {data.addr}
@@ -166,13 +163,11 @@ def socket_service_connection(key, mask):
                 sel.unregister(sock)
                 sock.close()
                 sys.exit(1)
-            else:
-                # add recv_data to data.outb to forward to client address
-                data.outb += recv_data
         else:
             print(f"Closing Connection to {data.addr}")
             sel.unregister(sock)
             sock.close()
+
     if mask & selectors.EVENT_WRITE:
         if data.outb:
             sent = sock.send(data.outb)  # Should be ready to write
@@ -207,9 +202,6 @@ def main():
         print("Caught Keyboard Interrupt, Exiting")
     finally:
         sel.close()
-    """
-    traceback.format_exc()}
-    """
 
 
 if __name__ == "__main__":
