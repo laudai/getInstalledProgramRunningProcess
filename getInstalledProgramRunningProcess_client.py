@@ -17,10 +17,20 @@ send flag 7 (1+2+4) will write all data to remote service, and get running proce
 and so on flag 3, 5, 6
 """
 formatter_class = argparse.ArgumentDefaultsHelpFormatter
-parser = argparse.ArgumentParser(description="Get windows data from remote services via socket.",
-                                 epilog="See the document from : https://github.com/laudai/getInstalledProgramRunningProcess", formatter_class=formatter_class)
-parser.add_argument("-f", "--flag", help="chose the mode you want from integer 0 ~ 7 0 : Shutdown all the remote service. 1 : write all data to remote service. 2 : get remote running process. 4 : get remote installed program.",
-                    default=6, type=int, required=True, choices=range(0, 8))
+parser = argparse.ArgumentParser(
+    description="Get windows data from remote services via socket.",
+    epilog="See the document from : https://github.com/laudai/getInstalledProgramRunningProcess",
+    formatter_class=formatter_class,
+)
+parser.add_argument(
+    "-f",
+    "--flag",
+    help="chose the mode you want from integer 0 ~ 7 0 : Shutdown all the remote service. 1 : write all data to remote service. 2 : get remote running process. 4 : get remote installed program.",
+    default=6,
+    type=int,
+    required=True,
+    choices=range(0, 8),
+)
 args = parser.parse_args()
 # parser.print_help()
 
@@ -34,8 +44,7 @@ sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 sock.setblocking(False)
 sock.connect_ex((HOST, PORT))
 events = selectors.EVENT_READ | selectors.EVENT_WRITE
-data = types.SimpleNamespace(
-    recv_total=0, totalmessage=b"", outb=str(args.flag).encode(CONTENT_ENCODING))
+data = types.SimpleNamespace(recv_total=0, totalmessage=b"", outb=str(args.flag).encode(CONTENT_ENCODING))
 
 sel = selectors.DefaultSelector()
 sel.register(sock, events, data=data)
@@ -92,5 +101,5 @@ finally:
     sel.close()
 
 
-spreatlines = "="*80 + "\n"
+spreatlines = "=" * 80 + "\n"
 print(spreatlines)

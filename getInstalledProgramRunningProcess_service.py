@@ -13,7 +13,7 @@ import wmi
 
 import libsocketserver
 
-""""
+"""
 cp means child process
 """
 
@@ -27,9 +27,9 @@ DEFAULT_SOCKET_PORT: tuple = (17377, 17777)
 CONTENT_ENCODING = "UTF-8"
 
 EVENT_QUIT = 0
-EVENT_WRITEDATA_TO_LOCAL = (1 << 0)
-EVENT_GET_RUNNING_PROCESS = (1 << 1)
-EVENT_GET_INSTALLED_PROGRAM = (1 << 2)
+EVENT_WRITEDATA_TO_LOCAL = 1 << 0
+EVENT_GET_RUNNING_PROCESS = 1 << 1
+EVENT_GET_INSTALLED_PROGRAM = 1 << 2
 
 sel = selectors.DefaultSelector()
 
@@ -40,11 +40,9 @@ def get_service_information_header() -> List[str]:
     """
 
     # get remote service hostname
-    hostname_cp = subprocess.Popen(
-        "hostname", shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    hostname_cp = subprocess.Popen("hostname", shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     hostname_cp.wait()
-    hostname_cp_str = hostname_cp.stdout.readlines(
-    )[0].decode('ascii').strip('\r\n')
+    hostname_cp_str = hostname_cp.stdout.readlines()[0].decode("ascii").strip("\r\n")
 
     # get remote service time
     currentTime_str = datetime.now().strftime("%Y/%m/%d %H:%M:%S")
@@ -62,9 +60,12 @@ def get_service_installed_program() -> str:
 
     install_software_cp = subprocess.Popen(
         ["powershell", "Get-CimInstance win32_product | Select-Object Name, PackageName, InstallDate"],
-        shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        shell=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    )
     stdout, stderr = install_software_cp.communicate()
-    return stdout.decode('ANSI').replace("\r\n", "\n")
+    return stdout.decode("ANSI").replace("\r\n", "\n")
 
 
 def get_service_running_process() -> str:
@@ -76,13 +77,18 @@ def get_service_running_process() -> str:
     c = wmi.WMI()
     # get remote service running process to list structure
     # running_process_list metadata type:tuple data:(RunningProcessName, RunningProcessID)
-    running_process_list = [(process.Name, process.ProcessId)
-                            for process in c.Win32_Process() if process.Name not in DISABLE_SHOW_PROCESS_LIST]
+    running_process_list = [
+        (process.Name, process.ProcessId)
+        for process in c.Win32_Process()
+        if process.Name not in DISABLE_SHOW_PROCESS_LIST
+    ]
     # descending via process name
     running_process_list.sort()
 
     foo: int = len(running_process_list)
-    running_process_str: str = f"{'ProcessName':<40}={'Process ID':>20}\n" if foo % 2 else f"{'ProcessName':<40}|{'Process ID':>20}\n"
+    running_process_str: str = (
+        f"{'ProcessName':<40}={'Process ID':>20}\n" if foo % 2 else f"{'ProcessName':<40}|{'Process ID':>20}\n"
+    )
     for running_process in running_process_list:
         if foo % 2:
             running_process_str += f"{running_process[0]:<40}|{running_process[1]:>20}\n"
@@ -98,20 +104,20 @@ def writeAllDataToLocal():
     write data to remote service desktop
     """
     # write data to InstalledProgram.txt
-    with open(os.path.join(DIRPATH, "InstalledProgram.txt"), 'w', encoding=CONTENT_ENCODING) as f:
+    with open(os.path.join(DIRPATH, "InstalledProgram.txt"), "w", encoding=CONTENT_ENCODING) as f:
         get_service_information_header_list = get_service_information_header()
         for content in get_service_information_header_list:
-            f.write(content + '\n')
+            f.write(content + "\n")
         else:
             f.write("\n")
         installed_program_str = get_service_installed_program()
         f.write(installed_program_str)
 
     # write data to RunningProcess.txt
-    with open(os.path.join(DIRPATH, "RunningProcess.txt"), 'w', encoding=CONTENT_ENCODING) as f:
+    with open(os.path.join(DIRPATH, "RunningProcess.txt"), "w", encoding=CONTENT_ENCODING) as f:
         get_service_information_header_list = get_service_information_header()
         for content in get_service_information_header_list:
-            f.write(content + '\n')
+            f.write(content + "\n")
         else:
             f.write("\n")
         get_service_running_process_str = get_service_running_process()
@@ -136,8 +142,7 @@ def socket_service_connection(key, mask):
     if mask & selectors.EVENT_READ:
         recv_data = sock.recv(1024)  # Should be ready to read
         if recv_data:
-            events_mask = int(
-                chr(int.from_bytes(recv_data, byteorder="little")))
+            events_mask = int(chr(int.from_bytes(recv_data, byteorder="little")))
             get_service_information_header_list = get_service_information_header()
 
             if events_mask & EVENT_WRITEDATA_TO_LOCAL:
@@ -146,8 +151,7 @@ def socket_service_connection(key, mask):
 
             if events_mask & EVENT_GET_RUNNING_PROCESS:
                 get_service_running_process_str = get_service_running_process()
-                data.outb += get_service_running_process_str.encode(
-                    CONTENT_ENCODING)
+                data.outb += get_service_running_process_str.encode(CONTENT_ENCODING)
 
             if events_mask & EVENT_GET_INSTALLED_PROGRAM:
                 installed_program_str = get_service_installed_program()
@@ -178,15 +182,13 @@ def socket_service_connection(key, mask):
                 # send bytes message "q" to disconnect by peer
                 sock.send(b"q")
             except ConnectionError as err:
-                print(
-                    f"ConnectionError by peer Shutdown,Error Code:\n{err}")
+                print(f"ConnectionError by peer Shutdown,Error Code:\n{err}")
 
 
 def main():
     Socket = libsocketserver.Socket(HOST, DEFAULT_SOCKET_PORT)  # init Socket
     Socket.checkAndBindSocket()
-    sel.register(Socket.sock, selectors.EVENT_READ,
-                 data=None)  # multiplexing I/O
+    sel.register(Socket.sock, selectors.EVENT_READ, data=None)  # multiplexing I/O
     try:
         while True:
             try:

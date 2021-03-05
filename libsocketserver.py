@@ -14,15 +14,14 @@ class Socket:
         """
         Check port is binding, return socket instance
         """
-        for socketport in range(self.DEFAULT_SOCKET_PORT[0], self.DEFAULT_SOCKET_PORT[1]+1):
+        for socketport in range(self.DEFAULT_SOCKET_PORT[0], self.DEFAULT_SOCKET_PORT[1] + 1):
             try:
                 # Use IPv4 , TCP Protocol socket
                 self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
                 self.sock.bind((self.HOST, socketport))
                 self.PORT = socketport
                 self.sock.listen()
-                print(
-                    f"Socket Server use Address:{self.HOST}\tPort:{self.PORT}")
+                print(f"Socket Server use Address:{self.HOST}\tPort:{self.PORT}")
                 self.sock.setblocking(False)  # non-block socket
                 break
                 """
@@ -34,4 +33,4 @@ class Socket:
                 if e.errno == errno.EADDRINUSE:
                     print(f"Port {socketport} is already in use.")
                 else:
-                    print(f'Other socket error exception :\n{e}')
+                    print(f"Other socket error exception :\n{e}")
