@@ -99,29 +99,19 @@ def get_service_running_process() -> str:
     return running_process_str
 
 
-def writeAllDataToLocal():
+def writeDataToLocal(filename: str, content: str):
     """
     write data to remote service desktop
     """
-    # write data to InstalledProgram.txt
-    with open(os.path.join(DIRPATH, "InstalledProgram.txt"), "w", encoding=CONTENT_ENCODING) as f:
+    # write data to localfile via filename & data content
+    with open(os.path.join(DIRPATH, filename), "w", encoding=CONTENT_ENCODING) as f:
         get_service_information_header_list = get_service_information_header()
-        for content in get_service_information_header_list:
-            f.write(content + "\n")
+        for headdata in get_service_information_header_list:
+            f.write(headdata + "\n")
         else:
             f.write("\n")
         installed_program_str = get_service_installed_program()
-        f.write(installed_program_str)
-
-    # write data to RunningProcess.txt
-    with open(os.path.join(DIRPATH, "RunningProcess.txt"), "w", encoding=CONTENT_ENCODING) as f:
-        get_service_information_header_list = get_service_information_header()
-        for content in get_service_information_header_list:
-            f.write(content + "\n")
-        else:
-            f.write("\n")
-        get_service_running_process_str = get_service_running_process()
-        f.write(get_service_running_process_str)
+        f.write(content)
 
 
 def accept_socket_wrapper(sock):
@@ -145,17 +135,23 @@ def socket_service_connection(key, mask):
             events_mask = int(chr(int.from_bytes(recv_data, byteorder="little")))
             get_service_information_header_list = get_service_information_header()
 
-            if events_mask & EVENT_WRITEDATA_TO_LOCAL:
-                writeAllDataToLocal()
-                data.outb += "writeDataToLocal Done!".encode(CONTENT_ENCODING)
-
             if events_mask & EVENT_GET_RUNNING_PROCESS:
                 get_service_running_process_str = get_service_running_process()
                 data.outb += get_service_running_process_str.encode(CONTENT_ENCODING)
 
+                if events_mask & EVENT_WRITEDATA_TO_LOCAL:
+                    FILENAME = "RunningProcess.txt"
+                    writeDataToLocal(FILENAME, get_service_running_process_str)
+                    data.outb += "writeDataToLocal Done!".encode(CONTENT_ENCODING)
+
             if events_mask & EVENT_GET_INSTALLED_PROGRAM:
                 installed_program_str = get_service_installed_program()
                 data.outb += installed_program_str.encode(CONTENT_ENCODING)
+
+                if events_mask & EVENT_WRITEDATA_TO_LOCAL:
+                    FILENAME = "InstalledProgram.txt"
+                    writeDataToLocal(FILENAME, installed_program_str)
+                    data.outb += "writeDataToLocal Done!".encode(CONTENT_ENCODING)
 
             if not (events_mask ^ EVENT_QUIT):
                 text = f"""

@@ -25,11 +25,11 @@ parser = argparse.ArgumentParser(
 parser.add_argument(
     "-f",
     "--flag",
-    help="chose the mode you want from integer 0 ~ 7 0 : Shutdown all the remote service. 1 : write all data to remote service. 2 : get remote running process. 4 : get remote installed program.",
+    help="chose the mode you want from integer 0 ~ 7 0 : Shutdown all the remote service. 1 : write choose data to remote service(can't use flag 1 only). 2 : get remote running process. 4 : get remote installed program.",
     default=6,
     type=int,
     required=True,
-    choices=range(0, 8),
+    choices=[0, *range(2, 8)],
 )
 args = parser.parse_args()
 # parser.print_help()
