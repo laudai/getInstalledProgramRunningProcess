@@ -110,7 +110,6 @@ def writeDataToLocal(filename: str, content: str):
             f.write(headdata + "\n")
         else:
             f.write("\n")
-        installed_program_str = get_service_installed_program()
         f.write(content)
 
 
